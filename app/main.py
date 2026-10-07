@@ -3,6 +3,7 @@ from fastapi import FastAPI, HTTPException
 from app.schemas.flight import FlightCheckRequest
 from app.services.airport_service import get_airport
 from app.services.route_service import generate_route_points
+from app.services.weather_service import get_weather
 
 app = FastAPI(title="VFR Weather Checker")
 
@@ -37,6 +38,13 @@ def check_flight(flight: FlightCheckRequest):
         flight.departure.time,
         flight.arrival.time
     )
+
+    for point in route_points:
+        point["weather"] = get_weather(
+            point["latitude"],
+            point["longitude"],
+            point["time"]
+        )
 
     return {
         "departure": flight.departure.icao,
