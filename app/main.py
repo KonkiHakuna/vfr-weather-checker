@@ -6,6 +6,7 @@ from app.services.route_service import generate_route_points
 from app.services.open_meteo_service import get_weather
 from app.services.aviation_weather_service import get_metar, get_taf
 from app.services.met_weather_service import get_met_weather
+from app.services.weather_comparison_service import compare_weather
 
 
 app = FastAPI(title="VFR Weather Checker")
@@ -55,6 +56,10 @@ def check_flight(flight: FlightCheckRequest):
                 point["time"]
             )
         }
+        point["weather_comparison"] = compare_weather(
+            point["weather"]["open_meteo"],
+            point["weather"]["met_norway"]
+        )
 
     departure_metar = get_metar(flight.departure.icao)
     departure_taf = get_taf(flight.departure.icao)
