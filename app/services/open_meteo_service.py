@@ -7,6 +7,7 @@ BASE_URL = "https://api.open-meteo.com/v1/forecast"
 
 
 def get_weather(latitude: float, longitude: float, time: datetime):
+    # Open-Meteo request is limited to the date containing the requested time.
     date = time.strftime("%Y-%m-%d")
 
     params = {
@@ -30,14 +31,20 @@ def get_weather(latitude: float, longitude: float, time: datetime):
         "end_date": date,
     }
 
+    # Request hourly forecast data for the selected location and date.
     response = httpx.get(BASE_URL, params=params)
+
+    # Raise an exception if the API returned an unsuccessful HTTP status.
     response.raise_for_status()
 
     data = response.json()
 
+    # Forecast values are returned in hourly arrays.
+    # Find the array index matching the requested UTC hour.
     hour = time.strftime("%Y-%m-%dT%H:00")
     index = data["hourly"]["time"].index(hour)
 
+    # Extract only the weather values needed by the rest of the application.
     return {
         "time": data["hourly"]["time"][index],
         "temperature_c": data["hourly"]["temperature_2m"][index],

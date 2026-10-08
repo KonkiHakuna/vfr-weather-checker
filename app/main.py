@@ -8,16 +8,20 @@ from app.services.aviation_weather_service import get_metar, get_taf
 from app.services.met_weather_service import get_met_weather
 from app.services.weather_comparison_service import compare_weather
 from app.services.vfr_service import evaluate_weather, evaluate_taf, evaluate_flight
+
+# Main FastAPI application.
 app = FastAPI(title="VFR Weather Checker")
 
 
 @app.get("/health")
 def health_check():
+    # Simple endpoint used to verify that the API is running.
     return {"status": "ok"}
 
 
 @app.post("/api/v1/flights/check")
 def check_flight(flight: FlightCheckRequest):
+    # Resolve ICAO codes into airport data such as coordinates.
     departure = get_airport(flight.departure.icao)
     arrival = get_airport(flight.arrival.icao)
 
@@ -33,6 +37,8 @@ def check_flight(flight: FlightCheckRequest):
             detail=f"Airport {flight.arrival.icao} not found"
         )
 
+    # Generate intermediate points between departure and arrival,
+    # including the expected time at each point.
     route_points = generate_route_points(
         departure["lat"],
         departure["lon"],
@@ -42,6 +48,7 @@ def check_flight(flight: FlightCheckRequest):
         flight.arrival.time
     )
 
+    # Fetch weather data for every route point from two independent sources.
     for point in route_points:
         point["weather"] = {
             "open_meteo": get_weather(
@@ -55,10 +62,14 @@ def check_flight(flight: FlightCheckRequest):
                 point["time"]
             )
         }
+
+        # Compare both weather providers to show how closely their forecasts match.
         point["weather_comparison"] = compare_weather(
             point["weather"]["open_meteo"],
             point["weather"]["met_norway"]
         )
+
+        # Evaluate whether the weather at this route point is suitable for VFR.
         point["evaluation"] = evaluate_weather(
             get_weather(
                 point["latitude"],
@@ -67,6 +78,7 @@ def check_flight(flight: FlightCheckRequest):
             )
         )
 
+    # Fetch aviation-specific weather for the departure airport.
     departure_metar = get_metar(flight.departure.icao)
     departure_taf = get_taf(flight.departure.icao)
     departure_evaluation = evaluate_taf(
@@ -74,6 +86,7 @@ def check_flight(flight: FlightCheckRequest):
         flight.departure.time
     )
 
+    # Fetch aviation-specific weather for the arrival airport.
     arrival_metar = get_metar(flight.arrival.icao)
     arrival_taf = get_taf(flight.arrival.icao)
     arrival_evaluation = evaluate_taf(
@@ -81,6 +94,7 @@ def check_flight(flight: FlightCheckRequest):
         flight.arrival.time
     )
 
+    # Combine airport and route evaluations into one overall flight rating.
     overall_evaluation = evaluate_flight(
         route_points,
         departure_evaluation,

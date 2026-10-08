@@ -4,6 +4,7 @@ from datetime import datetime
 def evaluate_weather(weather: dict):
     issues = []
 
+    # Check basic weather conditions that may make a VFR flight less suitable.
     if weather["visibility_m"] < 5000:
         issues.append("low visibility")
 
@@ -16,6 +17,7 @@ def evaluate_weather(weather: dict):
     if weather["precipitation_mm"] > 0:
         issues.append("precipitation")
 
+    # The final rating depends on how many issues were detected.
     if not issues:
         rating = "GOOD"
 
@@ -30,7 +32,9 @@ def evaluate_weather(weather: dict):
         "issues": issues
     }
 
+
 def evaluate_taf(taf: dict | None, flight_time: datetime):
+    # TAF data may be unavailable for some airports.
     if taf is None:
         return{
             "rating": "UNKNOWN",
@@ -39,6 +43,10 @@ def evaluate_taf(taf: dict | None, flight_time: datetime):
 
     issues = []
 
+    # ICAO code identifies which airport this TAF belongs to.
+    icao = taf["icao"]
+
+    # Find forecast periods that include the planned flight time.
     for forecast in taf["forecasts"]:
         start = datetime.fromisoformat(forecast["from"])
         end = datetime.fromisoformat(forecast["to"])
@@ -50,21 +58,25 @@ def evaluate_taf(taf: dict | None, flight_time: datetime):
         visibility = forecast.get("visibility")
 
         if gust is not None and gust > 25:
-            issues.append("strong wind gusts in TAF")
+            issues.append(f"{icao}: strong wind gusts in TAF")
 
+        # Visibility is checked only when the API returned a numeric value.
         if isinstance(visibility, (int, float)) and visibility < 3.1:
-            issues.append("low visibility in TAF")
+            issues.append(f"{icao}: low visibility in TAF")
 
+        # Check each reported cloud layer for low ceilings
+        # and convective cloud types.
         for cloud in forecast.get("clouds", []):
             cover = cloud.get("cover")
             base = cloud.get("base")
 
             if cover in ("BKN", "OVC") and base is not None and base < 1500:
-                issues.append("low cloud ceiling in TAF")
+                issues.append(f"{icao}: low cloud ceiling in TAF")
 
             if cloud.get("type") in ("CB", "TCU"):
-                issues.append("convective in TAF")
+                issues.append(f"{icao}: convective in TAF")
 
+    # Remove duplicate issues while preserving their original order.
     issues = list(dict.fromkeys(issues))
 
     return {
@@ -72,7 +84,9 @@ def evaluate_taf(taf: dict | None, flight_time: datetime):
         "issues": issues
     }
 
+
 def evaluate_flight(route_points: list, departure_evaluation: dict, arrival_evaluation: dict):
+    # Start with airport evaluations and then include all route points.
     evaluations = [
         departure_evaluation,
         arrival_evaluation
@@ -83,6 +97,7 @@ def evaluate_flight(route_points: list, departure_evaluation: dict, arrival_eval
 
     issues = []
 
+    # Merge issues from all parts of the flight without duplicates.
     for evaluation in evaluations:
         for issue in evaluation["issues"]:
             if issue not in issues:
@@ -90,6 +105,7 @@ def evaluate_flight(route_points: list, departure_evaluation: dict, arrival_eval
 
     ratings = [evaluation["rating"] for evaluation in evaluations]
 
+    # Use the worst detected rating as the overall flight rating.
     if "POOR" in ratings:
         rating = "POOR"
     elif "CAUTION" in ratings:

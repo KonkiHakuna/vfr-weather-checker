@@ -1,10 +1,12 @@
 def compare_weather(open_meteo: dict, met_norway: dict):
+    # If the second provider has no data, comparison cannot be performed.
     if met_norway is None:
         return {
             "providers_available": 1,
             "comparison_available": False
         }
 
+    # Compare the most important values returned by both providers.
     return {
         "providers_available": 2,
         "comparison_available": True,

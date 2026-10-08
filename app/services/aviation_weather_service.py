@@ -4,15 +4,19 @@ from datetime import datetime, timezone
 
 BASE_URL = "https://aviationweather.gov/api/data"
 
+# AviationWeather.gov expects a User-Agent header with the request.
 HEADERS = {
     "User-Agent": "VFR-Weather-Checker"
 }
 
 
 def timestamp_to_iso(timestamp: int):
+    # Convert a Unix timestamp to an ISO 8601 UTC datetime string.
     return datetime.fromtimestamp(timestamp, timezone.utc).isoformat()
 
+
 def get_metar(icao: str):
+    # Request the latest METAR observation for the selected airport.
     response = httpx.get(
         f"{BASE_URL}/metar",
         params={
@@ -24,6 +28,7 @@ def get_metar(icao: str):
 
     response.raise_for_status()
 
+    # HTTP 204 means that the server returned no weather report.
     if response.status_code == 204:
         return None
 
@@ -32,8 +37,10 @@ def get_metar(icao: str):
     if not data:
         return None
 
+    # The API returns a list even when requesting a single airport.
     metar = data[0]
 
+    # Return only the fields needed by the application.
     return {
         "icao": metar["icaoId"],
         "report_time": metar["reportTime"],
@@ -51,6 +58,7 @@ def get_metar(icao: str):
 
 
 def get_taf(icao: str):
+    # Request the terminal forecast for the selected airport.
     response = httpx.get(
         f"{BASE_URL}/taf",
         params={
@@ -74,6 +82,7 @@ def get_taf(icao: str):
 
     forecasts = []
 
+    # A TAF may contain multiple forecast periods with different conditions.
     for forecast in taf["fcsts"]:
         forecasts.append({
             "from": timestamp_to_iso(forecast["timeFrom"]),
