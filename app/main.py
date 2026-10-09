@@ -49,7 +49,12 @@ def check_flight(flight: FlightCheckRequest):
     )
 
     # Fetch weather data for every route point from two independent sources.
-    for point in route_points:
+    for i,point in enumerate(route_points):
+        print(
+            f"Processing point {i + 1}/{len(route_points)}",
+            flush=True
+        )
+
         point["weather"] = {
             "open_meteo": get_weather(
                 point["latitude"],

@@ -4,6 +4,13 @@ from datetime import datetime
 def evaluate_weather(weather: dict):
     issues = []
 
+    # Return an unknown evaluation when weather data is unavailable.
+    if weather is None:
+        return {
+            "status": "UNKNOWN",
+            "issues": ["Weather data unavailable"]
+        }
+
     # Check basic weather conditions that may make a VFR flight less suitable.
     if weather["visibility_m"] < 5000:
         issues.append("low visibility")
