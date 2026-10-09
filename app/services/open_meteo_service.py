@@ -31,13 +31,20 @@ def get_weather(latitude: float, longitude: float, time: datetime):
         "end_date": date,
     }
 
-    # Request hourly forecast data for the selected location and date.
-    response = httpx.get(BASE_URL, params=params)
+    # Fetch weather data from Open-Meteo with a timeout to prevent hanging requests.
+    # Handle HTTP and network errors gracefully when the external API is unavailable.
+    try:
+        response = httpx.get(
+            BASE_URL,
+            params=params,
+            timeout=15.0
+        )
+        response.raise_for_status()
+        data = response.json()
 
-    # Raise an exception if the API returned an unsuccessful HTTP status.
-    response.raise_for_status()
-
-    data = response.json()
+    except httpx.HTTPError as exc:
+        print(f"Open-Meteo request failed: {exc}")
+        return None
 
     # Forecast values are returned in hourly arrays.
     # Find the array index matching the requested UTC hour.
