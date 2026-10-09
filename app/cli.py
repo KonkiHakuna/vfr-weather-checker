@@ -58,7 +58,7 @@ def main():
         response = httpx.post(
             "http://127.0.0.1:8000/api/v1/flights/check",
             json=flight,
-            timeout=60
+            timeout=120
         )
 
         # Raise an exception for unsuccessful HTTP responses.
