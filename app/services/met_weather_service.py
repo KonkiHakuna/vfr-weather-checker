@@ -12,19 +12,26 @@ HEADERS = {
 
 
 def get_met_weather(latitude: float, longitude: float, time: datetime):
-    # Request the forecast for the selected geographic coordinates.
-    response = httpx.get(
-        BASE_URL,
-        params={
-            "lat": latitude,
-            "lon": longitude
-        },
-        headers=HEADERS
-    )
 
-    response.raise_for_status()
+    # Fetch the forecast with a timeout to prevent hanging requests.
+    try:
+        response = httpx.get(
+            BASE_URL,
+            params={
+                "lat": latitude,
+                "lon": longitude
+            },
+            headers=HEADERS,
+            timeout=15.0
+        )
 
-    data = response.json()
+        response.raise_for_status()
+        data = response.json()
+
+    except httpx.HTTPError as exc:
+        print(f"MET Norway request failed: {exc}")
+        return None
+
     timeseries = data["properties"]["timeseries"]
 
     # Find the forecast entry whose timestamp is closest

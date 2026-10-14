@@ -49,38 +49,41 @@ def check_flight(flight: FlightCheckRequest):
     )
 
     # Fetch weather data for every route point from two independent sources.
-    for i,point in enumerate(route_points):
+    for i, point in enumerate(route_points):
         print(
             f"Processing point {i + 1}/{len(route_points)}",
             flush=True
         )
 
-        point["weather"] = {
-            "open_meteo": get_weather(
-                point["latitude"],
-                point["longitude"],
-                point["time"]
-            ),
-            "met_norway": get_met_weather(
-                point["latitude"],
-                point["longitude"],
-                point["time"]
-            )
-        }
-
-        # Compare both weather providers to show how closely their forecasts match.
-        point["weather_comparison"] = compare_weather(
-            point["weather"]["open_meteo"],
-            point["weather"]["met_norway"]
+        # Fetch Open-Meteo data once for the current route point.
+        open_meteo_weather = get_weather(
+            point["latitude"],
+            point["longitude"],
+            point["time"]
         )
 
-        # Evaluate whether the weather at this route point is suitable for VFR.
+        # Fetch MET Norway data once for the current route point.
+        met_norway_weather = get_met_weather(
+            point["latitude"],
+            point["longitude"],
+            point["time"]
+        )
+
+        # Store weather data returned by both providers.
+        point["weather"] = {
+            "open_meteo": open_meteo_weather,
+            "met_norway": met_norway_weather
+        }
+
+        # Compare both weather providers.
+        point["weather_comparison"] = compare_weather(
+            open_meteo_weather,
+            met_norway_weather
+        )
+
+        # Evaluate the already fetched Open-Meteo forecast.
         point["evaluation"] = evaluate_weather(
-            get_weather(
-                point["latitude"],
-                point["longitude"],
-                point["time"]
-            )
+            open_meteo_weather
         )
 
     # Fetch aviation-specific weather for the departure airport.

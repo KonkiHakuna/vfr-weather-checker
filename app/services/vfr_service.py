@@ -7,7 +7,7 @@ def evaluate_weather(weather: dict):
     # Return an unknown evaluation when weather data is unavailable.
     if weather is None:
         return {
-            "status": "UNKNOWN",
+            "rating": "UNKNOWN",
             "issues": ["Weather data unavailable"]
         }
 
