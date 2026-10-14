@@ -53,10 +53,14 @@ async def process_route_point(
         "met_norway": met_norway_weather
     }
 
-    point["weather_comparison"] = compare_weather(
-        open_meteo_weather,
-        met_norway_weather
-    )
+    # Compare forecasts only when both providers returned data.
+    if open_meteo_weather is not None and met_norway_weather is not None:
+        point["weather_comparison"] = compare_weather(
+            open_meteo_weather,
+            met_norway_weather
+        )
+    else:
+        point["weather_comparison"] = None
 
     # Evaluate the available Open-Meteo forecast.
     point["evaluation"] = evaluate_weather(open_meteo_weather)
@@ -91,7 +95,7 @@ async def check_flight(flight: FlightCheckRequest):
     )
 
     # Reuse HTTP connections and limit concurrent route-point processing.
-    semaphore = asyncio.Semaphore(6)
+    semaphore = asyncio.Semaphore(2)
 
     async with httpx.AsyncClient(timeout=15.0) as client:
         await asyncio.gather(

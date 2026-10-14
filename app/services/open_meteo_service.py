@@ -47,7 +47,15 @@ async def get_weather(
         response.raise_for_status()
         data = response.json()
 
-    except (httpx.HTTPError, ValueError) as exc:
+
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code == 429:
+            print("Open-Meteo rate limit reached (429)")
+        else:
+            print(f"Open-Meteo HTTP error: {exc}")
+        return None
+
+    except (httpx.RequestError, ValueError) as exc:
         print(f"Open-Meteo request failed: {exc}")
         return None
 
