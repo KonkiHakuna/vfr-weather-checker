@@ -1,4 +1,5 @@
-from datetime import datetime
+
+from datetime import datetime, timezone
 
 import httpx
 
@@ -6,9 +7,15 @@ import httpx
 BASE_URL = "https://api.open-meteo.com/v1/forecast"
 
 
-def get_weather(latitude: float, longitude: float, time: datetime):
-    # Open-Meteo request is limited to the date containing the requested time.
-    date = time.strftime("%Y-%m-%d")
+async def get_weather(
+    latitude: float,
+    longitude: float,
+    time: datetime,
+    client: httpx.AsyncClient
+):
+    # Convert the requested time to UTC.
+    utc_time = time.astimezone(timezone.utc)
+    date = utc_time.strftime("%Y-%m-%d")
 
     params = {
         "latitude": latitude,
@@ -31,37 +38,40 @@ def get_weather(latitude: float, longitude: float, time: datetime):
         "end_date": date,
     }
 
-    # Fetch weather data from Open-Meteo with a timeout to prevent hanging requests.
-    # Handle HTTP and network errors gracefully when the external API is unavailable.
+    # Fetch the forecast asynchronously using a shared HTTP client.
     try:
-        response = httpx.get(
+        response = await client.get(
             BASE_URL,
-            params=params,
-            timeout=15.0
+            params=params
         )
         response.raise_for_status()
         data = response.json()
 
-    except httpx.HTTPError as exc:
+    except (httpx.HTTPError, ValueError) as exc:
         print(f"Open-Meteo request failed: {exc}")
         return None
 
-    # Forecast values are returned in hourly arrays.
-    # Find the array index matching the requested UTC hour.
-    hour = time.strftime("%Y-%m-%dT%H:00")
-    index = data["hourly"]["time"].index(hour)
+    # Find the forecast matching the requested UTC hour.
+    hour = utc_time.strftime("%Y-%m-%dT%H:00")
 
-    # Extract only the weather values needed by the rest of the application.
-    return {
-        "time": data["hourly"]["time"][index],
-        "temperature_c": data["hourly"]["temperature_2m"][index],
-        "visibility_m": data["hourly"]["visibility"][index],
-        "cloud_cover": data["hourly"]["cloud_cover"][index],
-        "precipitation_mm": data["hourly"]["precipitation"][index],
-        "wind_speed_kt": data["hourly"]["wind_speed_10m"][index],
-        "wind_direction_deg": data["hourly"]["wind_direction_10m"][index],
-        "wind_gusts_kt": data["hourly"]["wind_gusts_10m"][index],
-        "cloud_cover_low": data["hourly"]["cloud_cover_low"][index],
-        "cloud_cover_mid": data["hourly"]["cloud_cover_mid"][index],
-        "cloud_cover_high": data["hourly"]["cloud_cover_high"][index],
-    }
+    try:
+        hourly = data["hourly"]
+        index = hourly["time"].index(hour)
+
+        return {
+            "time": hourly["time"][index],
+            "temperature_c": hourly["temperature_2m"][index],
+            "visibility_m": hourly["visibility"][index],
+            "cloud_cover": hourly["cloud_cover"][index],
+            "precipitation_mm": hourly["precipitation"][index],
+            "wind_speed_kt": hourly["wind_speed_10m"][index],
+            "wind_direction_deg": hourly["wind_direction_10m"][index],
+            "wind_gusts_kt": hourly["wind_gusts_10m"][index],
+            "cloud_cover_low": hourly["cloud_cover_low"][index],
+            "cloud_cover_mid": hourly["cloud_cover_mid"][index],
+            "cloud_cover_high": hourly["cloud_cover_high"][index],
+        }
+
+    except (KeyError, ValueError, IndexError, TypeError) as exc:
+        print(f"Open-Meteo forecast data unavailable: {exc}")
+        return None

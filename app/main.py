@@ -1,3 +1,7 @@
+
+import asyncio
+
+import httpx
 from fastapi import FastAPI, HTTPException
 
 from app.schemas.flight import FlightCheckRequest
@@ -9,6 +13,7 @@ from app.services.met_weather_service import get_met_weather
 from app.services.weather_comparison_service import compare_weather
 from app.services.vfr_service import evaluate_weather, evaluate_taf, evaluate_flight
 
+
 # Main FastAPI application.
 app = FastAPI(title="VFR Weather Checker")
 
@@ -19,9 +24,47 @@ def health_check():
     return {"status": "ok"}
 
 
+async def process_route_point(
+    point: dict,
+    client: httpx.AsyncClient,
+    semaphore: asyncio.Semaphore
+):
+    # Limit the number of simultaneous weather requests.
+    async with semaphore:
+        # Fetch forecasts from both providers concurrently.
+        open_meteo_weather, met_norway_weather = await asyncio.gather(
+            get_weather(
+                point["latitude"],
+                point["longitude"],
+                point["time"],
+                client
+            ),
+            get_met_weather(
+                point["latitude"],
+                point["longitude"],
+                point["time"],
+                client
+            )
+        )
+
+    # Store the forecasts and their comparison.
+    point["weather"] = {
+        "open_meteo": open_meteo_weather,
+        "met_norway": met_norway_weather
+    }
+
+    point["weather_comparison"] = compare_weather(
+        open_meteo_weather,
+        met_norway_weather
+    )
+
+    # Evaluate the available Open-Meteo forecast.
+    point["evaluation"] = evaluate_weather(open_meteo_weather)
+
+
 @app.post("/api/v1/flights/check")
-def check_flight(flight: FlightCheckRequest):
-    # Resolve ICAO codes into airport data such as coordinates.
+async def check_flight(flight: FlightCheckRequest):
+    # Resolve ICAO codes into airport coordinates.
     departure = get_airport(flight.departure.icao)
     arrival = get_airport(flight.arrival.icao)
 
@@ -37,8 +80,7 @@ def check_flight(flight: FlightCheckRequest):
             detail=f"Airport {flight.arrival.icao} not found"
         )
 
-    # Generate intermediate points between departure and arrival,
-    # including the expected time at each point.
+    # Generate route points with their expected flight times.
     route_points = generate_route_points(
         departure["lat"],
         departure["lon"],
@@ -48,55 +90,33 @@ def check_flight(flight: FlightCheckRequest):
         flight.arrival.time
     )
 
-    # Fetch weather data for every route point from two independent sources.
-    for i, point in enumerate(route_points):
-        print(
-            f"Processing point {i + 1}/{len(route_points)}",
-            flush=True
+    # Reuse HTTP connections and limit concurrent route-point processing.
+    semaphore = asyncio.Semaphore(6)
+
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        await asyncio.gather(
+            *[
+                process_route_point(point, client, semaphore)
+                for point in route_points
+            ]
         )
 
-        # Fetch Open-Meteo data once for the current route point.
-        open_meteo_weather = get_weather(
-            point["latitude"],
-            point["longitude"],
-            point["time"]
+    # Run the existing synchronous aviation-weather requests in worker threads.
+    departure_metar, departure_taf, arrival_metar, arrival_taf = (
+        await asyncio.gather(
+            asyncio.to_thread(get_metar, flight.departure.icao),
+            asyncio.to_thread(get_taf, flight.departure.icao),
+            asyncio.to_thread(get_metar, flight.arrival.icao),
+            asyncio.to_thread(get_taf, flight.arrival.icao)
         )
+    )
 
-        # Fetch MET Norway data once for the current route point.
-        met_norway_weather = get_met_weather(
-            point["latitude"],
-            point["longitude"],
-            point["time"]
-        )
-
-        # Store weather data returned by both providers.
-        point["weather"] = {
-            "open_meteo": open_meteo_weather,
-            "met_norway": met_norway_weather
-        }
-
-        # Compare both weather providers.
-        point["weather_comparison"] = compare_weather(
-            open_meteo_weather,
-            met_norway_weather
-        )
-
-        # Evaluate the already fetched Open-Meteo forecast.
-        point["evaluation"] = evaluate_weather(
-            open_meteo_weather
-        )
-
-    # Fetch aviation-specific weather for the departure airport.
-    departure_metar = get_metar(flight.departure.icao)
-    departure_taf = get_taf(flight.departure.icao)
+    # Evaluate airport forecasts at the requested flight times.
     departure_evaluation = evaluate_taf(
         departure_taf,
         flight.departure.time
     )
 
-    # Fetch aviation-specific weather for the arrival airport.
-    arrival_metar = get_metar(flight.arrival.icao)
-    arrival_taf = get_taf(flight.arrival.icao)
     arrival_evaluation = evaluate_taf(
         arrival_taf,
         flight.arrival.time
@@ -110,13 +130,13 @@ def check_flight(flight: FlightCheckRequest):
     )
 
     return {
-        "departure":{
+        "departure": {
             "icao": flight.departure.icao,
             "metar": departure_metar,
             "taf": departure_taf,
             "evaluation": departure_evaluation
         },
-        "arrival":{
+        "arrival": {
             "icao": flight.arrival.icao,
             "metar": arrival_metar,
             "taf": arrival_taf,
