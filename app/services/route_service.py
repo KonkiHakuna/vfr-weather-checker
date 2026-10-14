@@ -1,6 +1,10 @@
 from datetime import datetime
+from math import ceil
 
-from app.cli import calculate_distance
+from app.utils.geo import (
+    calculate_distance,
+    interpolate_great_circle,
+)
 
 
 def generate_route_points(
@@ -16,10 +20,15 @@ def generate_route_points(
     # Total planned flight duration.
     total_time = arrival_time - departure_time
 
+    # Great-circle distance defines the total route length.
+    route_length = calculate_distance(
+        start_lat,
+        start_lon,
+        end_lat,
+        end_lon,
+    )
 
-    route_length = calculate_distance(start_lat,start_lon,end_lat,end_lon)
-
-    # Select point spacing based on route length.
+    # Point spacing increases with route length.
     if route_length < 100:
         spacing = 25
     elif route_length < 500:
@@ -31,24 +40,32 @@ def generate_route_points(
     else:
         spacing = 500
 
-    # Calculate the number of intermediate points.
-    points_count = max(0, int(route_length // spacing))
+    # The number of intermediate points keeps segments within the selected spacing.
+    points_count = max(
+        0,
+        ceil(route_length / spacing) - 1
+    )
 
-    # Include departure and arrival in addition to intermediate route points.
+    # Departure and arrival are included with all intermediate route points.
     for i in range(points_count + 2):
         ratio = i / (points_count + 1)
 
-        # Linearly interpolate coordinates between departure and arrival.
-        latitude = start_lat + (end_lat - start_lat) * ratio
-        longitude = start_lon + (end_lon - start_lon) * ratio
+        # Spherical interpolation follows the shortest route over the Earth.
+        latitude, longitude = interpolate_great_circle(
+            start_lat,
+            start_lon,
+            end_lat,
+            end_lon,
+            ratio,
+        )
 
-        # Estimate the time at this route point using the same progress ratio.
+        # Route time progresses proportionally with route distance.
         time = departure_time + total_time * ratio
 
         points.append({
             "latitude": latitude,
             "longitude": longitude,
-            "time": time
+            "time": time,
         })
 
     return points

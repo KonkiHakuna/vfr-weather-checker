@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from math import radians, sin, cos, sqrt, atan2
+from app.utils.geo import calculate_distance
 
 import httpx
 
@@ -9,21 +10,6 @@ def get_time(message):
     value = input(f"{message} (YYYY-MM-DD HH:MM UTC): ")
     date = datetime.strptime(value, "%Y-%m-%d %H:%M")
     return date.replace(tzinfo=timezone.utc).isoformat()
-
-
-def calculate_distance(lat1, lng1, lat2, lng2):
-    earth_radius = 6371
-
-    # Haversine formula used to calculate distance
-    # between two geographic coordinates.
-    lat_diff = radians(lat2 - lat1)
-    lng_diff = radians(lng2 - lng1)
-    a = (sin(lat_diff/2)**2
-         + cos(radians(lat1)) * cos(radians(lat2))
-         * sin(lng_diff/2) ** 2
-         )
-    return 2 * earth_radius * atan2(sqrt(a), sqrt(1 - a))
-
 
 def main():
     print("========== VFR Weather Checker ==========")
