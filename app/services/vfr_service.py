@@ -23,7 +23,7 @@ def get_risk_level(factors: dict) -> str:
     return max(known, key=lambda level: RISK_LEVELS[level])
 
 
-def get_flight_category(visibility_m=None, ceiling_ft=None):
+def get_flight_category(visibility_m=None, ceiling_ft=None, allow_visibility_only=None):
     # Flight category needs visibility or a measured cloud ceiling.
     if visibility_m is None and ceiling_ft is None:
         return "UNKNOWN"
@@ -52,8 +52,10 @@ def get_flight_category(visibility_m=None, ceiling_ft=None):
     ):
         return "MVFR"
 
-    # Without both measurements, VFR cannot be confirmed.
+    # Without both measurements, VFR cannot normally be confirmed.
     if visibility_sm is None or ceiling_ft is None:
+        if allow_visibility_only and visibility_sm is not None:
+            return "VFR"
         return "UNKNOWN"
 
     return "VFR"
@@ -167,7 +169,8 @@ def evaluate_weather(weather: dict | None):
         "rating": risk_level,
         "risk_level": risk_level,
         "flight_category": get_flight_category(
-            visibility_m=visibility
+            visibility_m=visibility,
+            allow_visibility_only=True
         ),
         "factors": factors,
         "issues": issues,
