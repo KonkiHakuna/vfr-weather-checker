@@ -89,6 +89,23 @@ def main():
     print(f"Cruise altitude: {altitude} ft")
     print(f"Overall risk: {evaluation['risk_level']}")
 
+    # Warn when the weather assessment is incomplete.
+    missing_weather = evaluation["missing_weather_data"]
+    unknown_categories = evaluation["unknown_flight_categories"]
+    unknown_airports = evaluation["unknown_airport_evaluations"]
+
+    if missing_weather > 0 or unknown_categories > 0 or unknown_airports > 0:
+        print("\nWARNING: Weather assessment is incomplete.")
+
+        if missing_weather > 0:
+            print(f"- Weather unavailable at {missing_weather} route point(s)")
+
+        if unknown_categories > 0:
+            print(f"- Flight category unknown at {unknown_categories} route point(s)")
+
+        if unknown_airports > 0:
+            print(f"- Airport weather assessment unknown for {unknown_airports} airport(s)")
+
     # Display the route risk summary.
     print(f"Route points: {evaluation['evaluated_points']}")
 
