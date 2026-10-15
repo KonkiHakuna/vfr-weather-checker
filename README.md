@@ -156,17 +156,17 @@ The CLI will first ask which display mode should be used:
 2. Detailed
    ```
    
-   Then enter the flight information:
+Then enter the flight information:
    
-   - Departure airport (ICAO)
-   - Departure time (UTC)
-   - Arrival airport (ICAO)
-   - Arrival time (UTC)
-   - Planned cruise altitude (ft)
+- Departure airport (ICAO)
+- Departure time (UTC)
+- Arrival airport (ICAO)
+- Arrival time (UTC)
+- Planned cruise altitude (ft)
    
-   ## CLI Modes
+## CLI Modes
    
-   ### Normal Mode
+### Normal Mode
 
 Normal mode displays the most important flight information, including:
 
@@ -191,15 +191,15 @@ Detailed mode includes additional information such as:
 - Missing weather information
   
 
-  Actual results depend on the selected route, time, altitude and weather data availability.
+Actual results depend on the selected route, time, altitude and weather data availability.
   
-  ## API Endpoint
+## API Endpoint
   
-  The main flight-check endpoint is:
-  
-  ```text
-  POST /api/v1/flights/check
-  ```
+The main flight-check endpoint is:
+   
+```text
+POST /api/v1/flights/check
+```
   
 ### Request Body
   
@@ -217,48 +217,48 @@ Detailed mode includes additional information such as:
 }
 ```
   
-  ## Limitations
+## Limitations
   
-  The application uses simplified weather evaluation rules.
+The application uses simplified weather evaluation rules.
   
-  Some important limitations include:
+Some important limitations include:
   
-  - Cruise-altitude wind is based on the nearest available pressure level
-  - Cloud ceiling data is not available for every route forecast point
-  - Route flight categories may sometimes be based on visibility only
-  - Weather providers may temporarily return incomplete or unavailable data
-  - Risk thresholds are project-specific and simplified
-  - The application does not include aircraft-specific performance limitations
-  - Wind direction relative to aircraft heading is not yet evaluated
+- Cruise-altitude wind is based on the nearest available pressure level
+- Cloud ceiling data is not available for every route forecast point
+- Route flight categories may sometimes be based on visibility only
+- Weather providers may temporarily return incomplete or unavailable data
+- Risk thresholds are project-specific and simplified
+- The application does not include aircraft-specific performance limitations
+- Wind direction relative to aircraft heading is not yet evaluated
   
-  ## Planned Improvements
+## Planned Improvements
   
-  Possible future improvements include:
+Possible future improvements include:
   
-  - Headwind and tailwind calculation
-  - Crosswind calculation
-  - Better cloud ceiling support
-  - More advanced flight-category evaluation
-  - Temperature at cruise altitude
-  - Freezing-level information
-  - Improved weather provider comparison
-  - Automated tests
-  - Graphical user interface
-  - Exportable flight weather reports
+- Headwind and tailwind calculation
+- Crosswind calculation
+- Better cloud ceiling support
+- More advanced flight-category evaluation
+- Temperature at cruise altitude
+- Freezing-level information
+- Improved weather provider comparison
+- Automated tests
+- Graphical user interface
+- Exportable flight weather reports
   
-  ## Disclaimer
+## Disclaimer
   
-  This project is intended for **educational purposes only**.
+This project is intended for **educational purposes only**.
   
-  The weather evaluation uses simplified rules and does not replace:
+The weather evaluation uses simplified rules and does not replace:
   
-  - Official aviation weather sources
-  - METAR and TAF interpretation by a pilot
-  - NOTAM checks
-  - Professional flight planning
-  - Aircraft-specific operating limitations
-  - Pilot judgment
+- Official aviation weather sources
+- METAR and TAF interpretation by a pilot
+- NOTAM checks
+- Professional flight planning
+- Aircraft-specific operating limitations
+- Pilot judgment
   
-  A `LOW` risk level does **not** guarantee safe VFR conditions.
+A `LOW` risk level does **not** guarantee safe VFR conditions.
   
-  Always use official aviation weather information and appropriate flight-planning procedures before conducting a flight.
+Always use official aviation weather information and appropriate flight-planning procedures before conducting a flight.
