@@ -5,7 +5,6 @@ import httpx
 
 from app.utils.geo import calculate_distance
 
-
 def get_time(message):
     # Read the flight time in UTC.
     value = input(f"{message} (YYYY-MM-DD HH:MM UTC): ")
@@ -23,10 +22,29 @@ def display_factors(factors):
         label = name.replace("_", " ").capitalize()
         print(f"  {label}: {level}")
 
+def get_display_mode():
+    # Let the user choose how much information to display.
+    print("\nSelect display mode:")
+    print("1. Normal (basic information)")
+    print("2. Detailed (all weather information)")
+
+    while True:
+        choice = input("Choose mode (1/2): ").strip()
+
+        if choice == "1":
+            return False
+
+        if choice == "2":
+            return True
+
+        print("Invalid choice. Please enter 1 or 2.")
 
 def main():
     print("========== VFR Weather Checker ==========")
-    print("Please enter the data below:")
+
+    verbose = get_display_mode()
+
+    print("\nPlease enter the data below:")
 
     departure = input("Departure ICAO: ").strip().upper()
     departure_time = get_time("Departure Time")
@@ -71,15 +89,25 @@ def main():
     print(f"Cruise altitude: {altitude} ft")
     print(f"Overall risk: {evaluation['risk_level']}")
 
-    # Display the route risk summary and missing data counts.
+    # Display the route risk summary.
     print(f"Route points: {evaluation['evaluated_points']}")
-    print(f"Missing weather data: {evaluation['missing_weather_data']}")
-    print(f"Unknown flight categories: {evaluation['unknown_flight_categories']}")
-    print(f"Unknown airport evaluations: {evaluation['unknown_airport_evaluations']}")
 
-    print("\nRisk summary:")
-    for level, count in evaluation["risk_counts"].items():
-        print(f"- {level}: {count}")
+    counts = evaluation["risk_counts"]
+
+    print(
+        "Risk summary: "
+        + " | ".join(
+            f"{level}: {count}"
+            for level, count in counts.items()
+        )
+    )
+
+    if verbose:
+        # Display additional data availability details.
+        print(f"Missing weather data: {evaluation['missing_weather_data']}")
+        print(f"Unknown flight categories: {evaluation['unknown_flight_categories']}")
+        print(f"Unknown airport evaluations: {evaluation['unknown_airport_evaluations']}")
+
 
     print("\nIssues:")
 
@@ -89,23 +117,26 @@ def main():
     else:
         print("- No issues detected")
 
-    print("\n========== AIRPORT WEATHER ==========")
+    if verbose:
+        # Display detailed airport weather information.
+        print("\n========== AIRPORT WEATHER ==========")
 
-    for airport_name in ("departure", "arrival"):
-        airport = result[airport_name]
-        airport_evaluation = airport["evaluation"]
+        for airport_name in ("departure", "arrival"):
+            airport = result[airport_name]
+            airport_evaluation = airport["evaluation"]
 
-        print(f"\n{airport['icao']}:")
-        print(f"  Risk: {airport_evaluation['risk_level']}")
-        print(
-            f"  Flight category: "
-            f"{airport_evaluation.get('flight_category', 'UNKNOWN')}"
-        )
+            print(f"\n{airport['icao']}:")
+            print(f"  Risk: {airport_evaluation['risk_level']}")
+            print(
+                f"  Flight category: "
+                f"{airport_evaluation.get('flight_category', 'UNKNOWN')}"
+            )
 
-        display_factors(airport_evaluation.get("factors", {}))
+            display_factors(airport_evaluation.get("factors", {}))
 
-        for issue in airport_evaluation.get("issues", []):
-            print(f"  - {issue}")
+            for issue in airport_evaluation.get("issues", []):
+                print(f"  - {issue}")
+
 
     print("\n========== ROUTE POINTS ==========")
 
@@ -134,41 +165,46 @@ def main():
 
         point_evaluation = point["evaluation"]
 
-        print(
-            f"\nPoint {index} "
-            f"({total_distance:.0f} km, {progress:.0f}%): "
-            f"{point_evaluation['risk_level']}"
-        )
-
-        print(
-            f"  Flight category: "
-            f"{point_evaluation.get('flight_category', 'UNKNOWN')}"
-        )
-
-        # Display forecast wind at the selected cruise altitude.
+        # Read cruise altitude wind data.
         open_meteo = point.get("weather", {}).get("open_meteo") or {}
         cruise_wind = open_meteo.get("cruise_wind")
+
+        print(
+            f"\nPoint {index} | "
+            f"{total_distance:.0f} km | "
+            f"{point_evaluation['risk_level']}"
+        )
 
         if cruise_wind:
             print(
                 f"  Cruise wind: {cruise_wind['wind_speed_kt']} kt "
                 f"from {cruise_wind['wind_direction_deg']}°"
             )
-            print(
-                f"  Forecast level: {cruise_wind['pressure_hpa']} hPa "
-                f"({cruise_wind['height_m']:.0f} m)"
-            )
         else:
             print("  Cruise wind: unavailable")
 
-        display_factors(point_evaluation.get("factors", {}))
+        if verbose:
+            # Display detailed weather information.
+            print(f"  Route progress: {progress:.0f}%")
+            print(
+                f"  Flight category: "
+                f"{point_evaluation.get('flight_category', 'UNKNOWN')}"
+            )
 
-        if point_evaluation.get("issues"):
+            if cruise_wind:
+                print(
+                    f"  Forecast level: {cruise_wind['pressure_hpa']} hPa "
+                    f"({cruise_wind['height_m']:.0f} m)"
+                )
+
+            display_factors(point_evaluation.get("factors", {}))
+
+        issues = point_evaluation.get("issues", [])
+
+        if issues:
             print("  Issues:")
-
-            for issue in point_evaluation["issues"]:
+            for issue in issues:
                 print(f"  - {issue}")
-
         else:
             print("  No issues detected")
 
