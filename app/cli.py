@@ -145,6 +145,22 @@ def main():
             f"{point_evaluation.get('flight_category', 'UNKNOWN')}"
         )
 
+        # Display forecast wind at the selected cruise altitude.
+        open_meteo = point.get("weather", {}).get("open_meteo") or {}
+        cruise_wind = open_meteo.get("cruise_wind")
+
+        if cruise_wind:
+            print(
+                f"  Cruise wind: {cruise_wind['wind_speed_kt']} kt "
+                f"from {cruise_wind['wind_direction_deg']}°"
+            )
+            print(
+                f"  Forecast level: {cruise_wind['pressure_hpa']} hPa "
+                f"({cruise_wind['height_m']:.0f} m)"
+            )
+        else:
+            print("  Cruise wind: unavailable")
+
         display_factors(point_evaluation.get("factors", {}))
 
         if point_evaluation.get("issues"):

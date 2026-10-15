@@ -26,9 +26,11 @@ def health_check():
 
 async def process_route_point(
     point: dict,
+    cruise_altitude_ft: int,
     client: httpx.AsyncClient,
     semaphore: asyncio.Semaphore
 ):
+
     # Limit the number of simultaneous weather requests.
     async with semaphore:
         # Fetch forecasts from both providers concurrently.
@@ -37,6 +39,7 @@ async def process_route_point(
                 point["latitude"],
                 point["longitude"],
                 point["time"],
+                cruise_altitude_ft,
                 client
             ),
             get_met_weather(
@@ -100,7 +103,12 @@ async def check_flight(flight: FlightCheckRequest):
     async with httpx.AsyncClient(timeout=15.0) as client:
         await asyncio.gather(
             *[
-                process_route_point(point, client, semaphore)
+                process_route_point(
+                    point,
+                    flight.cruise_altitude_ft,
+                    client,
+                    semaphore
+                )
                 for point in route_points
             ]
         )
