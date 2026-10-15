@@ -77,6 +77,10 @@ def evaluate_weather(weather: dict | None):
     gusts = weather.get("wind_gusts_kt")
     precipitation = weather.get("precipitation_mm")
 
+    # Read wind data at the selected cruise altitude.
+    cruise_wind = weather.get("cruise_wind") or {}
+    cruise_wind_speed = cruise_wind.get("wind_speed_kt")
+
     # Evaluate visibility.
     if visibility is None:
         factors["visibility"] = "UNKNOWN"
@@ -108,6 +112,22 @@ def evaluate_weather(weather: dict | None):
         issues.append("Moderate wind")
     else:
         factors["wind"] = "LOW"
+
+    # Evaluate wind speed at cruise altitude.
+    if cruise_wind_speed is None:
+        factors["cruise_wind"] = "UNKNOWN"
+        issues.append("Cruise wind data unavailable")
+    elif cruise_wind_speed > 40:
+        factors["cruise_wind"] = "SEVERE"
+        issues.append("Very strong cruise wind")
+    elif cruise_wind_speed > 30:
+        factors["cruise_wind"] = "HIGH"
+        issues.append("Strong cruise wind")
+    elif cruise_wind_speed > 20:
+        factors["cruise_wind"] = "MODERATE"
+        issues.append("Moderate cruise wind")
+    else:
+        factors["cruise_wind"] = "LOW"
 
     # Evaluate wind gusts.
     if gusts is None:
