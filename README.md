@@ -1,6 +1,6 @@
 # VFR Weather Checker
 
-**VFR Weather Checker** is a Python application that checks weather conditions along a planned **VFR (Visual Flight Rules)** route using **FastAPI** and external weather APIs.
+**VFR Weather Checker** is a Python application for checking weather conditions along a planned **VFR (Visual Flight Rules)** route using **FastAPI** and external aviation/weather data sources.
 
 Based on information such as:
 
@@ -10,26 +10,90 @@ Based on information such as:
 - Arrival time
 - Planned cruise altitude
 
-The application generates a simplified flight route, retrieves weather forecasts for points along the route and evaluates potential weather-related issues.
+the application generates a simplified flight route, retrieves weather forecasts for points along the route and evaluates potential weather-related risks.
 
 ## Project Status
 
 The core functionality is **implemented and working**.
 
-The application includes a FastAPI backend and a command-line interface (CLI). Further improvements may include more detailed weather evaluation, automated tests and a graphical interface.
+The project currently includes:
+
+- FastAPI backend
+- Command-line interface
+- Route weather evaluation
+- Airport METAR/TAF evaluation
+- Cruise-altitude wind data
+- Overall route risk summary
+- Normal and detailed CLI display modes
+
+Further improvements may include more advanced wind analysis, better cloud ceiling support, automated tests and a graphical interface.
 
 ## Features
 
 - Flight input using ICAO airport codes
+- Validation of departure and arrival times
+- Planned cruise altitude input
 - Route generation between airports
-- Weather forecasts for 7 route points
-- Weather data from Open-Meteo and MET Norway
+- Weather forecasts for multiple route points
+- Weather data from Open-Meteo
+- Weather data from MET Norway
 - METAR and TAF reports for departure and arrival airports
 - Weather comparison between providers
-- Simplified VFR weather evaluation
-- Overall flight rating and detected weather issues
-- Command-line interface (CLI)
-- Distance and route progress for each point
+- Surface wind evaluation
+- Wind gust evaluation
+- Visibility evaluation
+- Precipitation evaluation
+- Cruise-altitude wind forecast
+- Cruise-altitude wind risk evaluation
+- Simplified VFR flight category evaluation
+- Overall flight risk level
+- Detected weather issues
+- Missing weather data handling
+- Command-line interface
+- Normal and detailed CLI display modes
+- Distance and route progress for each route point
+
+## Weather Evaluation
+
+The application evaluates several weather-related factors:
+
+- Visibility
+- Surface wind
+- Wind gusts
+- Precipitation
+- Wind at cruise altitude
+
+Each factor is assigned one of the following risk levels:
+
+- `LOW`
+- `MODERATE`
+- `HIGH`
+- `SEVERE`
+- `UNKNOWN`
+
+The overall flight risk is based on the highest known risk level detected along the route and at the departure and arrival airports.
+
+### Flight Categories
+
+The application can also estimate simplified flight categories:
+
+- `VFR`
+- `MVFR`
+- `IFR`
+- `LIFR`
+- `UNKNOWN`
+
+For route points, the category may be based on visibility only when cloud ceiling data is unavailable.
+
+For airport TAF data, both visibility and available cloud ceiling information are used.
+
+## Cruise Altitude Weather
+
+The selected cruise altitude is used to retrieve wind forecasts from pressure levels available in Open-Meteo.
+
+The application selects the pressure level whose geopotential height is closest to the requested cruise altitude.
+
+Because pressure-level forecasts do not always match the exact requested altitude, cruise wind values should be treated as an approximation.
 
 ## Technologies
 
@@ -37,6 +101,7 @@ The application includes a FastAPI backend and a command-line interface (CLI). F
 - **FastAPI**
 - **Pydantic**
 - **HTTPX**
+- **asyncio**
 - **Open-Meteo API**
 - **MET Norway API**
 - **AviationWeather.gov API**
@@ -46,18 +111,20 @@ The application includes a FastAPI backend and a command-line interface (CLI). F
 
 ```text
 app/
-├── main.py                          # FastAPI application
-├── cli.py                           # Command-line interface
+├── main.py                           # FastAPI application
+├── cli.py                            # Command-line interface
 ├── schemas/
-│   └── flight.py                    # Flight request validation
-└── services/
-    ├── airport_service.py           # Airport information
-    ├── route_service.py             # Route generation
-    ├── open_meteo_service.py        # Open-Meteo forecasts
-    ├── met_weather_service.py       # MET Norway forecasts
-    ├── aviation_weather_service.py  # METAR and TAF
-    ├── weather_comparison_service.py # Weather comparison
-    └── vfr_service.py               # Weather evaluation
+│   └── flight.py                     # Flight request validation
+├── services/
+│   ├── airport_service.py            # Airport information
+│   ├── route_service.py              # Route generation
+│   ├── open_meteo_service.py         # Open-Meteo forecasts
+│   ├── met_weather_service.py        # MET Norway forecasts
+│   ├── aviation_weather_service.py   # METAR and TAF
+│   ├── weather_comparison_service.py # Weather comparison
+│   └── vfr_service.py                # Weather evaluation
+└── utils/
+    └── geo.py                        # Geographic calculations
 ```
 
 ## Running the Application
@@ -82,20 +149,116 @@ Open a second terminal, activate the virtual environment and run:
 python -m app.cli
 ```
 
-Enter the following flight information:
+The CLI will first ask which display mode should be used:
 
-- Departure airport (ICAO)
-- Arrival airport (ICAO)
-- Departure time (UTC)
-- Arrival time (UTC)
-- Planned cruise altitude (ft)
+```text
+1. Normal
+2. Detailed
+   ```
+   
+   Then enter the flight information:
+   
+   - Departure airport (ICAO)
+   - Departure time (UTC)
+   - Arrival airport (ICAO)
+   - Arrival time (UTC)
+   - Planned cruise altitude (ft)
+   
+   ## CLI Modes
+   
+   ### Normal Mode
 
-The application will display the overall weather rating, detected issues and weather evaluation for each route point.
+Normal mode displays the most important flight information, including:
 
-**Note:** Keep both terminals running while using the application. No web browser is required.
+- Route
+- Cruise altitude
+- Overall risk
+- Risk summary
+- Detected issues
+- Route points
+- Cruise-altitude wind
 
-## Disclaimer
+### Detailed Mode
 
-This project is intended for **educational purposes only**.
+Detailed mode includes additional information such as:
 
-The weather evaluation uses simplified rules and does not replace official aviation weather information or professional flight planning. A `GOOD` rating does not guarantee safe VFR conditions.
+- Airport weather evaluation
+- Flight category
+- Route progress
+- Forecast pressure level
+- Forecast height
+- Individual weather risk factors
+- Missing weather information
+  
+
+  Actual results depend on the selected route, time, altitude and weather data availability.
+  
+  ## API Endpoint
+  
+  The main flight-check endpoint is:
+  
+  ```text
+  POST /api/v1/flights/check
+  ```
+  
+### Request Body
+  
+  ```json
+{
+  "departure": {
+    "icao": "ICAO_CODE",
+    "time": "ISO_8601_DATETIME"
+  },
+  "arrival": {
+    "icao": "ICAO_CODE",
+    "time": "ISO_8601_DATETIME"
+  },
+  "cruise_altitude_ft": "INTEGER"
+}
+```
+  
+  ## Limitations
+  
+  The application uses simplified weather evaluation rules.
+  
+  Some important limitations include:
+  
+  - Cruise-altitude wind is based on the nearest available pressure level
+  - Cloud ceiling data is not available for every route forecast point
+  - Route flight categories may sometimes be based on visibility only
+  - Weather providers may temporarily return incomplete or unavailable data
+  - Risk thresholds are project-specific and simplified
+  - The application does not include aircraft-specific performance limitations
+  - Wind direction relative to aircraft heading is not yet evaluated
+  
+  ## Planned Improvements
+  
+  Possible future improvements include:
+  
+  - Headwind and tailwind calculation
+  - Crosswind calculation
+  - Better cloud ceiling support
+  - More advanced flight-category evaluation
+  - Temperature at cruise altitude
+  - Freezing-level information
+  - Improved weather provider comparison
+  - Automated tests
+  - Graphical user interface
+  - Exportable flight weather reports
+  
+  ## Disclaimer
+  
+  This project is intended for **educational purposes only**.
+  
+  The weather evaluation uses simplified rules and does not replace:
+  
+  - Official aviation weather sources
+  - METAR and TAF interpretation by a pilot
+  - NOTAM checks
+  - Professional flight planning
+  - Aircraft-specific operating limitations
+  - Pilot judgment
+  
+  A `LOW` risk level does **not** guarantee safe VFR conditions.
+  
+  Always use official aviation weather information and appropriate flight-planning procedures before conducting a flight.
